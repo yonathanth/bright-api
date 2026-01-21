@@ -7,10 +7,12 @@ import { Service } from '../entities/service.entity';
 import { Member } from '../entities/member.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { Transaction } from '../entities/transaction.entity';
+import { HealthMetric } from '../entities/health-metric.entity';
 import { ServiceSyncDto } from './dto/service-sync.dto';
 import { MemberSyncDto } from './dto/member-sync.dto';
 import { AttendanceSyncDto } from './dto/attendance-sync.dto';
 import { TransactionSyncDto } from './dto/transaction-sync.dto';
+import { HealthMetricSyncDto } from './dto/health-metric-sync.dto';
 
 @Injectable()
 export class SyncService {
@@ -25,6 +27,8 @@ export class SyncService {
     private attendanceRepository: Repository<Attendance>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+    @InjectRepository(HealthMetric)
+    private healthMetricRepository: Repository<HealthMetric>,
     private dataSource: DataSource,
   ) {}
 
@@ -34,6 +38,7 @@ export class SyncService {
     let attendanceSynced = 0;
     let transactionsSynced = 0;
     let servicesSynced = 0;
+    let healthMetricsSynced = 0;
     const results: DetailedSyncResultsDto = {};
 
     // Use a transaction for atomicity
@@ -99,6 +104,21 @@ export class SyncService {
         }
       }
 
+      // Sync health metrics (after members, as they reference members)
+      if (payload.healthMetrics && payload.healthMetrics.length > 0) {
+        const healthMetricResult = await this.syncHealthMetrics(
+          payload.healthMetrics,
+          queryRunner,
+        );
+        healthMetricsSynced = healthMetricResult.synced;
+        if (healthMetricResult.results) {
+          results.healthMetrics = healthMetricResult.results;
+        }
+        if (healthMetricResult.errors.length > 0) {
+          errors.push(...healthMetricResult.errors);
+        }
+      }
+
       // Only commit if no critical errors occurred
       const hasCriticalErrors = errors.some(e => 
         e.includes('FOREIGN KEY') || e.includes('missing') || e.includes('not found')
@@ -114,6 +134,7 @@ export class SyncService {
           attendanceSynced: 0,
           transactionsSynced: 0,
           servicesSynced: 0,
+          healthMetricsSynced: 0,
           errors: errors.length > 0 ? errors : undefined,
           timestamp: new Date().toISOString(),
           results: undefined, // Clear results since nothing was committed
@@ -121,7 +142,7 @@ export class SyncService {
       } else {
         await queryRunner.commitTransaction();
         this.logger.log(
-          `Sync completed: ${servicesSynced} services, ${membersSynced} members, ${attendanceSynced} attendance, ${transactionsSynced} transactions`,
+          `Sync completed: ${servicesSynced} services, ${membersSynced} members, ${attendanceSynced} attendance, ${transactionsSynced} transactions, ${healthMetricsSynced} health metrics`,
         );
       }
 
@@ -131,6 +152,7 @@ export class SyncService {
         attendanceSynced,
         transactionsSynced,
         servicesSynced,
+        healthMetricsSynced,
         errors: errors.length > 0 ? errors : undefined,
         timestamp: new Date().toISOString(),
         results: Object.keys(results).length > 0 ? results : undefined,
@@ -147,6 +169,7 @@ export class SyncService {
         attendanceSynced,
         transactionsSynced,
         servicesSynced,
+        healthMetricsSynced,
         errors,
         timestamp: new Date().toISOString(),
         results: Object.keys(results).length > 0 ? results : undefined,
@@ -311,6 +334,7 @@ export class SyncService {
         gender: memberDto.gender,
         organizationName: memberDto.organizationName,
         cardNo: memberDto.cardNo,
+        membershipTier: memberDto.membershipTier,
         lastSyncedAt: new Date(),
       };
     });
@@ -345,6 +369,7 @@ export class SyncService {
             'gender',
             'organizationName',
             'cardNo',
+            'membershipTier',
             'updatedAt',
             'lastSyncedAt',
           ],
@@ -621,10 +646,131 @@ export class SyncService {
     }
   }
 
+  private async syncHealthMetrics(
+    healthMetrics: HealthMetricSyncDto[],
+    queryRunner: any,
+  ): Promise<{ synced: number; results?: SyncResultDto; errors: string[] }> {
+    if (healthMetrics.length === 0) return { synced: 0, errors: [] };
+
+    const successful: number[] = [];
+    const failed: number[] = [];
+    const errors: string[] = [];
+
+    // Bulk load all members into a Map
+    const memberLocalIds = [...new Set(healthMetrics.map(hm => hm.memberId))];
+    const members = await queryRunner.manager.find(Member, {
+      where: { localId: In(memberLocalIds) },
+    });
+
+    const memberMap = new Map(members.map(m => [m.localId, m.id]));
+
+    // Separate valid and invalid health metric records
+    const validHealthMetrics: HealthMetricSyncDto[] = [];
+    const invalidHealthMetrics: HealthMetricSyncDto[] = [];
+
+    for (const healthMetricDto of healthMetrics) {
+      if (memberMap.has(healthMetricDto.memberId)) {
+        validHealthMetrics.push(healthMetricDto);
+      } else {
+        invalidHealthMetrics.push(healthMetricDto);
+        failed.push(healthMetricDto.id);
+        errors.push(
+          `Health metric record with localId ${healthMetricDto.id} references missing member with localId ${healthMetricDto.memberId}`,
+        );
+      }
+    }
+
+    if (invalidHealthMetrics.length > 0) {
+      this.logger.warn(
+        `${invalidHealthMetrics.length} health metric records skipped due to missing members`,
+      );
+    }
+
+    if (validHealthMetrics.length === 0) {
+      return {
+        synced: 0,
+        results: { successful, failed },
+        errors,
+      };
+    }
+
+    const values = validHealthMetrics.map(healthMetricDto => ({
+      localId: healthMetricDto.id,
+      memberLocalId: healthMetricDto.memberId,
+      memberId: memberMap.get(healthMetricDto.memberId)!,
+      measuredAt: new Date(healthMetricDto.measuredAt),
+      weight: healthMetricDto.weight,
+      bmi: healthMetricDto.bmi,
+      bodyFatPercent: healthMetricDto.bodyFatPercent,
+      heartRate: healthMetricDto.heartRate,
+      muscleMass: healthMetricDto.muscleMass,
+      leanBodyMass: healthMetricDto.leanBodyMass,
+      boneMass: healthMetricDto.boneMass,
+      skeletalMuscleMass: healthMetricDto.skeletalMuscleMass,
+      visceralFat: healthMetricDto.visceralFat,
+      subcutaneousFatPercent: healthMetricDto.subcutaneousFatPercent,
+      proteinPercent: healthMetricDto.proteinPercent,
+      bmr: healthMetricDto.bmr,
+      bodyAge: healthMetricDto.bodyAge,
+      bodyType: healthMetricDto.bodyType,
+      lastSyncedAt: new Date(),
+    }));
+
+    try {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(HealthMetric)
+        .values(values)
+        .orUpdate(
+          [
+            'memberLocalId',
+            'memberId',
+            'measuredAt',
+            'weight',
+            'bmi',
+            'bodyFatPercent',
+            'heartRate',
+            'muscleMass',
+            'leanBodyMass',
+            'boneMass',
+            'skeletalMuscleMass',
+            'visceralFat',
+            'subcutaneousFatPercent',
+            'proteinPercent',
+            'bmr',
+            'bodyAge',
+            'bodyType',
+            'updatedAt',
+            'lastSyncedAt',
+          ],
+          ['localId'],
+        )
+        .execute();
+
+      // All valid health metrics synced successfully
+      validHealthMetrics.forEach(hm => successful.push(hm.id));
+
+      return {
+        synced: validHealthMetrics.length,
+        results: { successful, failed },
+        errors,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Failed to bulk sync health metrics: ${errorMessage}`,
+      );
+      validHealthMetrics.forEach(hm => failed.push(hm.id));
+      errors.push(`Failed to sync health metrics: ${errorMessage}`);
+      return { synced: 0, results: { successful, failed }, errors };
+    }
+  }
+
   async getLastSyncTime(): Promise<{ lastSyncAt: string | null }> {
     try {
       // Get the most recent lastSyncedAt from all entities
-      const [serviceMax, memberMax, attendanceMax, transactionMax] = await Promise.all([
+      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax] = await Promise.all([
         this.serviceRepository
           .createQueryBuilder('service')
           .select('MAX(service.lastSyncedAt)', 'max')
@@ -645,6 +791,11 @@ export class SyncService {
           .select('MAX(transaction.lastSyncedAt)', 'max')
           .where('transaction.lastSyncedAt IS NOT NULL')
           .getRawOne(),
+        this.healthMetricRepository
+          .createQueryBuilder('healthMetric')
+          .select('MAX(healthMetric.lastSyncedAt)', 'max')
+          .where('healthMetric.lastSyncedAt IS NOT NULL')
+          .getRawOne(),
       ]);
 
       const dates: Date[] = [];
@@ -660,6 +811,9 @@ export class SyncService {
       }
       if (transactionMax?.max) {
         dates.push(new Date(transactionMax.max));
+      }
+      if (healthMetricMax?.max) {
+        dates.push(new Date(healthMetricMax.max));
       }
 
       if (dates.length === 0) {

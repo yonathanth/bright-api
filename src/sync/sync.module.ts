@@ -6,10 +6,11 @@ import { Service } from '../entities/service.entity';
 import { Member } from '../entities/member.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { Transaction } from '../entities/transaction.entity';
+import { HealthMetric } from '../entities/health-metric.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Service, Member, Attendance, Transaction]),
+    TypeOrmModule.forFeature([Service, Member, Attendance, Transaction, HealthMetric]),
   ],
   controllers: [SyncController],
   providers: [SyncService],

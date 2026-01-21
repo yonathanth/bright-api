@@ -8,6 +8,7 @@ export class DetailedSyncResultsDto {
   members?: SyncResultDto;
   attendance?: SyncResultDto;
   transactions?: SyncResultDto;
+  healthMetrics?: SyncResultDto;
 }
 
 export class SyncResponseDto {
@@ -16,6 +17,7 @@ export class SyncResponseDto {
   attendanceSynced: number;
   transactionsSynced: number;
   servicesSynced: number;
+  healthMetricsSynced: number;
   errors?: string[];
   timestamp: string;
   results?: DetailedSyncResultsDto;

@@ -91,6 +91,10 @@ export class Member {
   @Column({ type: 'varchar', length: 100, nullable: true })
   cardNo: string | null;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Index('idx_member_membership_tier')
+  membershipTier: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

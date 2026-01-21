@@ -36,7 +36,7 @@ export class SyncController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   @ApiOperation({
     summary: 'Sync data to cloud',
-    description: 'Synchronizes services, members, attendance, and transactions from the desktop app to the cloud database',
+    description: 'Synchronizes services, members, attendance, transactions, and health metrics from the desktop app to the cloud database',
   })
   @ApiBody({ type: SyncPayloadDto })
   @ApiResponse({

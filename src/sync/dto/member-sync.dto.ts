@@ -95,6 +95,10 @@ export class MemberSyncDto {
   @IsOptional()
   @IsString()
   cardNo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  membershipTier?: string | null;
 }
 
 
