@@ -55,8 +55,7 @@ jobs:
               pm2 save
             else
               echo "Starting new PM2 process for bright-gym-api..."
-              # Note: I kept the port 64387 from your template. 
-              # Change it if this API uses a different port.
+              
               pm2 start npm --name "bright-gym-api" -- start --
               pm2 startup
               pm2 save
