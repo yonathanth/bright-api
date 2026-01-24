@@ -55,7 +55,6 @@ jobs:
               pm2 save
             else
               echo "Starting new PM2 process for bright-gym-api..."
-              
               pm2 start npm --name "bright-gym-api" -- start --
               pm2 startup
               pm2 save
