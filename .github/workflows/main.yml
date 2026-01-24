@@ -1,0 +1,61 @@
+name: Deploy Bright Gym API
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy_production:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Connect with VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            # Create and move to the API directory
+            mkdir -p apps/bright-gym-api && cd apps/bright-gym-api
+            
+            # Check if repo exists, otherwise clone
+            if [ -d ".git" ]; then
+              echo "Repository exists. Pulling latest changes..."
+              git stash
+              git pull origin master
+            else
+              echo "Cloning API repository..."
+              git clone -b master https://github.com/yonathanth/bright-api.git .
+            fi
+          
+            # Install dependencies
+            echo "Installing dependencies..."
+            npm install --force
+            
+            # Run Prisma setup (Database Schema)
+            echo "Running database migrations..."
+            npx prisma generate
+            npx prisma db push
+            
+            # Build the application
+            echo "Building application..."
+            npm run build
+
+            # PM2 Process Management
+            pid=$(pm2 pid "bright-gym-api" 2>/dev/null)
+            if [ -n "$pid" ] && [ "$pid" != "0" ]; then
+              echo "Reloading bright-gym-api..."
+              pm2 reload "bright-gym-api"
+              pm2 save
+            else
+              echo "Starting new PM2 process for bright-gym-api..."
+              pm2 start npm --name "bright-gym-api" -- start --
+              pm2 startup
+              pm2 save
+            fi
