@@ -43,3 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_health_metric_measured_at ON health_metric(measur
 ALTER TABLE member ADD COLUMN IF NOT EXISTS membership_tier VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_member_membership_tier ON member(membership_tier);
 
+
+
+

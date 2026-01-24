@@ -110,6 +110,9 @@ export class MemberWebDto {
   @ApiPropertyOptional({ example: 'Additional notes' })
   notes?: string;
 
+  @ApiPropertyOptional({ example: 'gold', description: 'Membership tier' })
+  membershipTier?: string;
+
   @ApiProperty({ example: '2026-01-12T00:00:00.000Z' })
   createdAt: string;
 

@@ -769,51 +769,49 @@ export class SyncService {
 
   async getLastSyncTime(): Promise<{ lastSyncAt: string | null }> {
     try {
+      // Helper function to safely get max lastSyncedAt
+      const getMaxLastSynced = async (
+        repository: Repository<any>,
+        entityName: string,
+      ): Promise<{ max: Date | string } | null> => {
+        try {
+          const result = await repository
+            .createQueryBuilder(entityName)
+            .select(`MAX(${entityName}.lastSyncedAt)`, 'max')
+            .where(`${entityName}.lastSyncedAt IS NOT NULL`)
+            .getRawOne();
+          return result || null;
+        } catch (err) {
+          this.logger.warn(`Failed to get ${entityName} lastSyncAt: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          return null;
+        }
+      };
+
       // Get the most recent lastSyncedAt from all entities
-      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax] = await Promise.all([
-        this.serviceRepository
-          .createQueryBuilder('service')
-          .select('MAX(service.lastSyncedAt)', 'max')
-          .where('service.lastSyncedAt IS NOT NULL')
-          .getRawOne(),
-        this.memberRepository
-          .createQueryBuilder('member')
-          .select('MAX(member.lastSyncedAt)', 'max')
-          .where('member.lastSyncedAt IS NOT NULL')
-          .getRawOne(),
-        this.attendanceRepository
-          .createQueryBuilder('attendance')
-          .select('MAX(attendance.lastSyncedAt)', 'max')
-          .where('attendance.lastSyncedAt IS NOT NULL')
-          .getRawOne(),
-        this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('MAX(transaction.lastSyncedAt)', 'max')
-          .where('transaction.lastSyncedAt IS NOT NULL')
-          .getRawOne(),
-        this.healthMetricRepository
-          .createQueryBuilder('healthMetric')
-          .select('MAX(healthMetric.lastSyncedAt)', 'max')
-          .where('healthMetric.lastSyncedAt IS NOT NULL')
-          .getRawOne(),
+      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax] = await Promise.allSettled([
+        getMaxLastSynced(this.serviceRepository, 'service'),
+        getMaxLastSynced(this.memberRepository, 'member'),
+        getMaxLastSynced(this.attendanceRepository, 'attendance'),
+        getMaxLastSynced(this.transactionRepository, 'transaction'),
+        getMaxLastSynced(this.healthMetricRepository, 'healthMetric'),
       ]);
 
       const dates: Date[] = [];
       
-      if (serviceMax?.max) {
-        dates.push(new Date(serviceMax.max));
+      if (serviceMax.status === 'fulfilled' && serviceMax.value?.max) {
+        dates.push(new Date(serviceMax.value.max));
       }
-      if (memberMax?.max) {
-        dates.push(new Date(memberMax.max));
+      if (memberMax.status === 'fulfilled' && memberMax.value?.max) {
+        dates.push(new Date(memberMax.value.max));
       }
-      if (attendanceMax?.max) {
-        dates.push(new Date(attendanceMax.max));
+      if (attendanceMax.status === 'fulfilled' && attendanceMax.value?.max) {
+        dates.push(new Date(attendanceMax.value.max));
       }
-      if (transactionMax?.max) {
-        dates.push(new Date(transactionMax.max));
+      if (transactionMax.status === 'fulfilled' && transactionMax.value?.max) {
+        dates.push(new Date(transactionMax.value.max));
       }
-      if (healthMetricMax?.max) {
-        dates.push(new Date(healthMetricMax.max));
+      if (healthMetricMax.status === 'fulfilled' && healthMetricMax.value?.max) {
+        dates.push(new Date(healthMetricMax.value.max));
       }
 
       if (dates.length === 0) {
@@ -823,7 +821,7 @@ export class SyncService {
       const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
       return { lastSyncAt: maxDate.toISOString() };
     } catch (error) {
-      this.logger.error(`Failed to get last sync time: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      this.logger.error(`Failed to get last sync time: ${error instanceof Error ? error.message : 'Unknown error'}`, error instanceof Error ? error.stack : undefined);
       return { lastSyncAt: null };
     }
   }

@@ -11,6 +11,8 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { SmsModule } from './sms/sms.module';
+import { HealthMetricsModule } from './health-metrics/health-metrics.module';
+import { PotentialCustomersModule } from './potential-customers/potential-customers.module';
 import { getDatabaseConfig } from './config/database.config';
 
 @Module({
@@ -32,6 +34,8 @@ import { getDatabaseConfig } from './config/database.config';
     TransactionsModule,
     DashboardModule,
     SmsModule,
+    HealthMetricsModule,
+    PotentialCustomersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,7 +3,7 @@ import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
-export class AttendanceQueryDto extends PaginationQueryDto {
+export class HealthMetricQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by member ID',
     example: 1,
@@ -14,15 +14,7 @@ export class AttendanceQueryDto extends PaginationQueryDto {
   memberId?: number;
 
   @ApiPropertyOptional({
-    description: 'Filter by specific date (ISO 8601)',
-    example: '2026-01-12',
-  })
-  @IsOptional()
-  @IsDateString()
-  date?: string;
-
-  @ApiPropertyOptional({
-    description: 'Filter by start date (ISO 8601)',
+    description: 'Filter by start date',
     example: '2026-01-01',
   })
   @IsOptional()
@@ -30,24 +22,13 @@ export class AttendanceQueryDto extends PaginationQueryDto {
   startDate?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by end date (ISO 8601)',
-    example: '2026-01-31',
+    description: 'Filter by end date',
+    example: '2026-12-31',
   })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -60,6 +60,7 @@ export class MembersService {
       registrationDate: member.firstRegisteredAt.toISOString(),
       emergencyContact: undefined, // Not in database
       notes: undefined, // Not in database
+      membershipTier: member.membershipTier || undefined,
       createdAt: member.createdAt.toISOString(),
       updatedAt: member.updatedAt.toISOString(),
     };
