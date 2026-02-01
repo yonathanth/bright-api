@@ -18,6 +18,7 @@ import { ServicesService } from './services.service';
 import { ServiceQueryDto } from './dto/service-query.dto';
 import { ServiceResponseDto, ServiceStatsDto, ServiceWebDto } from './dto/service-response.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 import { PaginatedResponseDto } from '../common/dto/pagination.dto';
 import { Service } from '../entities/service.entity';
 
@@ -29,17 +30,14 @@ export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
   @Get()
+  @Public()
   @ApiOperation({
     summary: 'List all services',
-    description: 'Returns a paginated list of services with optional filtering',
+    description: 'Returns a paginated list of services with optional filtering. Public so membership and register pages can load plans without login.',
   })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of services',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
   })
   async findAll(@Query() query: ServiceQueryDto): Promise<PaginatedResponseDto<ServiceWebDto>> {
     return this.servicesService.findAll(query);
@@ -60,9 +58,10 @@ export class ServicesController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({
     summary: 'Get service by ID',
-    description: 'Returns a single service by its database ID',
+    description: 'Returns a single service by its database ID. Public so marketing pages can show plan details without login.',
   })
   @ApiParam({
     name: 'id',

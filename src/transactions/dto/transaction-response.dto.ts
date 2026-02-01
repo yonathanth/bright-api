@@ -63,8 +63,12 @@ export class TransactionWebDto {
   @ApiProperty({ example: 2200.00 })
   amount: number;
 
-  @ApiProperty({ example: 'income', enum: ['income', 'expense'] })
-  type: 'income' | 'expense';
+  @ApiProperty({
+    example: 'income',
+    enum: ['income', 'expense', 'positive_return', 'negative_return'],
+    description: 'Transaction type from desktop app',
+  })
+  type: 'income' | 'expense' | 'positive_return' | 'negative_return';
 
   @ApiProperty({ example: 'Exercise' })
   category: string;
@@ -95,35 +99,44 @@ export class TransactionStatsDto {
   @ApiProperty({ example: 500, description: 'Total number of transactions' })
   total: number;
 
-  @ApiProperty({ example: 150000.00, description: 'Total income' })
+  @ApiProperty({
+    example: 150000.00,
+    description: 'Total inflows (income + positive_return)',
+  })
   totalIncome: number;
 
-  @ApiProperty({ example: 25000.00, description: 'Total expenses' })
-  totalExpense: number;
+  @ApiProperty({
+    example: 25000.00,
+    description: 'Total outflows (expense + negative_return)',
+  })
+  totalOutflows: number;
 
-  @ApiProperty({ example: 125000.00, description: 'Net profit (income - expenses)' })
+  @ApiProperty({
+    example: 125000.00,
+    description: 'Net profit (totalIncome - totalOutflows)',
+  })
   netProfit: number;
 
-  @ApiProperty({ example: 45000.00, description: 'Income this month' })
+  @ApiProperty({ example: 45000.00, description: 'Inflows this month (UTC)' })
   thisMonthIncome: number;
 
-  @ApiProperty({ example: 8000.00, description: 'Expenses this month' })
-  thisMonthExpense: number;
+  @ApiProperty({ example: 8000.00, description: 'Outflows this month (UTC)' })
+  thisMonthOutflows: number;
 
-  @ApiProperty({ example: 42000.00, description: 'Income last month' })
+  @ApiProperty({ example: 42000.00, description: 'Inflows last month (UTC)' })
   lastMonthIncome: number;
 
-  @ApiProperty({ example: 7500.00, description: 'Expenses last month' })
-  lastMonthExpense: number;
+  @ApiProperty({ example: 7500.00, description: 'Outflows last month (UTC)' })
+  lastMonthOutflows: number;
 
   @ApiProperty({
     example: [
-      { date: '2026-01-12', income: 5000, expense: 500 },
-      { date: '2026-01-11', income: 3500, expense: 0 },
+      { date: '2026-01-12', income: 5000, outflows: 500 },
+      { date: '2026-01-11', income: 3500, outflows: 0 },
     ],
-    description: 'Financial summary for the last 7 days',
+    description: 'Financial summary for the last 7 days (UTC dates)',
   })
-  last7Days: { date: string; income: number; expense: number }[];
+  last7Days: { date: string; income: number; outflows: number }[];
 }
 
 

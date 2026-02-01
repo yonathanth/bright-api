@@ -6,11 +6,11 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 export class TransactionQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: 'Filter by transaction type',
-    enum: ['income', 'expense'],
+    enum: ['income', 'expense', 'positive_return', 'negative_return'],
     example: 'income',
   })
   @IsOptional()
-  @IsIn(['income', 'expense'])
+  @IsIn(['income', 'expense', 'positive_return', 'negative_return'])
   transactionType?: string;
 
   @ApiPropertyOptional({

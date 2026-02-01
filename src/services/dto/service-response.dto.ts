@@ -45,6 +45,9 @@ export class ServiceWebDto {
   @ApiProperty({ example: 'Monthly Membership' })
   name: string;
 
+  @ApiProperty({ example: 'gym', description: 'Category for filtering (e.g. gym, group fitness, bmi fit)' })
+  category: string;
+
   @ApiPropertyOptional({ example: 'Full access to gym facilities' })
   description?: string;
 

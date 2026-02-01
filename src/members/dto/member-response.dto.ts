@@ -85,12 +85,11 @@ export class MemberWebDto {
   @ApiPropertyOptional({ example: 'male' })
   gender?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     example: 'active',
-    enum: ['active', 'inactive'],
-    description: 'Member status'
+    description: 'Member status from database (no overrides)'
   })
-  status: 'active' | 'inactive';
+  status: string;
 
   @ApiPropertyOptional({ example: 'Monthly Membership' })
   serviceType?: string;

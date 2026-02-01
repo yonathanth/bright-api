@@ -42,6 +42,7 @@ export class ServicesService {
     return {
       id: service.id,
       name: service.name,
+      category: service.category,
       description: service.description || undefined,
       price: Number(service.price),
       duration,

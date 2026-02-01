@@ -16,36 +16,9 @@ export class MembersService {
   ) {}
 
   /**
-   * Map member status to web app format
-   */
-  private mapStatus(status: string, subscriptionEndDate: Date): 'active' | 'inactive' {
-    const now = new Date();
-    const endDate = new Date(subscriptionEndDate);
-    
-    // If subscription has expired, return 'inactive' (consistent with desktop app)
-    if (endDate < now) {
-      return 'inactive';
-    }
-    
-    // Map status string to web app format
-    if (status === 'active') {
-      return 'active';
-    } else if (status === 'inactive' || status === 'pending' || status === 'expired') {
-      // Handle legacy 'expired' status - convert to 'inactive'
-      return 'inactive';
-    }
-    
-    // Default to inactive for unknown statuses
-    return 'inactive';
-  }
-
-  /**
-   * Transform Member entity to web app format
+   * Transform Member entity to web app format. Status is passed through from DB with no overrides.
    */
   transformToWebFormat(member: Member): MemberWebDto {
-    // Determine status (check if subscription expired)
-    const status = this.mapStatus(member.status, member.subscriptionEndDate);
-    
     return {
       id: member.id,
       memberId: member.localId.toString(), // Convert localId to string
@@ -53,7 +26,7 @@ export class MembersService {
       phone: member.phoneNumber,
       email: member.email || undefined,
       gender: member.gender || undefined,
-      status,
+      status: member.status,
       serviceType: member.service?.name || undefined,
       startDate: member.subscriptionStartDate.toISOString(),
       endDate: member.subscriptionEndDate.toISOString(),
