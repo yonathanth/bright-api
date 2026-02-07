@@ -22,11 +22,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Logger } from '@nestjs/common';
 import { SmsService } from './sms.service';
 import { SmsTemplateService } from './sms-template.service';
-import { SmsRenewalService } from './sms-renewal.service';
 import { SendSmsDto } from './dto/send-sms.dto';
 import { BulkSmsDto } from './dto/bulk-sms.dto';
 import { PersonalizedSmsDto } from './dto/personalized-sms.dto';
-import { RenewalReminderDto } from './dto/renewal-reminder.dto';
 import {
   SmsResponseDto,
   SmsBalanceDto,
@@ -46,7 +44,6 @@ export class SmsController {
   constructor(
     private readonly smsService: SmsService,
     private readonly templateService: SmsTemplateService,
-    private readonly renewalService: SmsRenewalService,
     @InjectRepository(SmsMessage)
     private smsMessageRepository: Repository<SmsMessage>,
   ) {}
@@ -273,27 +270,6 @@ export class SmsController {
     });
 
     return createPaginatedResponse(history, total, pageValue, limitValue);
-  }
-
-  @Post('renewal-reminders')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('bearer')
-  @ApiOperation({
-    summary: 'Send renewal reminders',
-    description: 'Manually trigger sending renewal reminders to members with expiring subscriptions',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Renewal reminders sent successfully',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized',
-  })
-  async sendRenewalReminders(
-    @Body() dto: RenewalReminderDto,
-  ): Promise<{ success: number; failed: number; total: number }> {
-    return this.renewalService.sendRenewalReminders(dto.days);
   }
 
   @Get('templates')

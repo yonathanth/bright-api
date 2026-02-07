@@ -40,7 +40,6 @@ export class SmsTemplateService {
 
   getAvailableVariables(type: string): string[] {
     const variableMap: Record<string, string[]> = {
-      renewal: ['memberName', 'expiryDate', 'daysLeft', 'serviceName'],
       payment: ['memberName', 'amount', 'expiryDate', 'serviceName'],
       general: ['memberName', 'message'],
     };

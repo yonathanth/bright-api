@@ -66,9 +66,15 @@ export class SmsService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(
-          `AfroMessage API error: ${response.status} - ${errorText}`,
+        const fallback =
+          errorText && errorText.trim()
+            ? errorText
+            : `AfroMessage API returned ${response.status} with no error details. This may indicate a temporary server issue, invalid config (token/sender/identifier), or unsupported request. Verify your SMS config and try again.`;
+        this.logger.error(
+          `AfroMessage API error ${response.status}: ${fallback}`,
+          { url, method: options.method || 'GET' },
         );
+        throw new Error(`AfroMessage API error: ${response.status} - ${fallback}`);
       }
 
       return response;

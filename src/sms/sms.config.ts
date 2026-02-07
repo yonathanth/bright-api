@@ -5,7 +5,6 @@ export interface SmsConfig {
   token: string;
   senderName?: string;
   identifierId?: string;
-  renewalReminderDays: number;
   baseUrl: string;
   callbackBaseUrl?: string;
 }
@@ -38,8 +37,6 @@ export class SmsConfigService implements OnModuleInit {
       token,
       senderName, // Can be undefined for beta testing
       identifierId: this.configService.get<string>('AFRO_IDENTIFIER_ID'),
-      renewalReminderDays:
-        this.configService.get<number>('AFRO_RENEWAL_REMINDER_DAYS') || 3,
       baseUrl: 'https://api.afromessage.com/api',
       callbackBaseUrl, // Optional - e.g., https://your-domain.com
     };
@@ -62,10 +59,6 @@ export class SmsConfigService implements OnModuleInit {
 
   getIdentifierId(): string | undefined {
     return this.getConfig().identifierId;
-  }
-
-  getRenewalReminderDays(): number {
-    return this.getConfig().renewalReminderDays;
   }
 
   getBaseUrl(): string {

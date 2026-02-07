@@ -6,7 +6,6 @@ import { SmsTemplate } from '../entities/sms-template.entity';
 import { Member } from '../entities/member.entity';
 import { SmsService } from './sms.service';
 import { SmsTemplateService } from './sms-template.service';
-import { SmsRenewalService } from './sms-renewal.service';
 import { SmsController } from './sms.controller';
 import { SmsConfigService } from './sms.config';
 import { MembersModule } from '../members/members.module';
@@ -21,8 +20,8 @@ import { Logger } from '@nestjs/common';
     MembersModule,
   ],
   controllers: [SmsController],
-  providers: [SmsService, SmsTemplateService, SmsRenewalService, SmsConfigService],
-  exports: [SmsService, SmsRenewalService],
+  providers: [SmsService, SmsTemplateService, SmsConfigService],
+  exports: [SmsService],
 })
 export class SmsModule implements OnModuleInit {
   private readonly logger = new Logger(SmsModule.name);
@@ -38,19 +37,6 @@ export class SmsModule implements OnModuleInit {
 
   private async seedDefaultTemplates(): Promise<void> {
     const defaultTemplates = [
-      {
-        name: 'Subscription Renewal Reminder',
-        type: 'renewal',
-        content:
-          'Hi {memberName}, your subscription expires on {expiryDate}. Please renew to continue enjoying our services!',
-        variables: {
-          memberName: 'Member full name',
-          expiryDate: 'Subscription expiry date',
-          daysLeft: 'Days until expiry',
-          serviceName: 'Service name',
-        },
-        isActive: true,
-      },
       {
         name: 'General Notification',
         type: 'general',

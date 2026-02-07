@@ -230,8 +230,12 @@ export class DashboardService {
         where: { date: Between(date, nextDate) },
       });
 
+      // Use local date string (YYYY-MM-DD) so frontend weekday labels match the actual day
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
       last30Days.push({
-        date: date.toISOString().split('T')[0],
+        date: `${y}-${m}-${d}`,
         count,
       });
     }
