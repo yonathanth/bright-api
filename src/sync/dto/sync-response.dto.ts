@@ -9,6 +9,8 @@ export class DetailedSyncResultsDto {
   attendance?: SyncResultDto;
   transactions?: SyncResultDto;
   healthMetrics?: SyncResultDto;
+  staff?: SyncResultDto;
+  staffAttendance?: SyncResultDto;
 }
 
 export class SyncResponseDto {
@@ -18,6 +20,8 @@ export class SyncResponseDto {
   transactionsSynced: number;
   servicesSynced: number;
   healthMetricsSynced: number;
+  staffSynced: number;
+  staffAttendanceSynced: number;
   errors?: string[];
   timestamp: string;
   results?: DetailedSyncResultsDto;

@@ -8,11 +8,15 @@ import { Member } from '../entities/member.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { Transaction } from '../entities/transaction.entity';
 import { HealthMetric } from '../entities/health-metric.entity';
+import { Staff } from '../entities/staff.entity';
+import { StaffAttendance } from '../entities/staff-attendance.entity';
 import { ServiceSyncDto } from './dto/service-sync.dto';
 import { MemberSyncDto } from './dto/member-sync.dto';
 import { AttendanceSyncDto } from './dto/attendance-sync.dto';
 import { TransactionSyncDto } from './dto/transaction-sync.dto';
 import { HealthMetricSyncDto } from './dto/health-metric-sync.dto';
+import { StaffSyncDto } from './dto/staff-sync.dto';
+import { StaffAttendanceSyncDto } from './dto/staff-attendance-sync.dto';
 
 @Injectable()
 export class SyncService {
@@ -29,6 +33,10 @@ export class SyncService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(HealthMetric)
     private healthMetricRepository: Repository<HealthMetric>,
+    @InjectRepository(Staff)
+    private staffRepository: Repository<Staff>,
+    @InjectRepository(StaffAttendance)
+    private staffAttendanceRepository: Repository<StaffAttendance>,
     private dataSource: DataSource,
   ) {}
 
@@ -39,6 +47,8 @@ export class SyncService {
     let transactionsSynced = 0;
     let servicesSynced = 0;
     let healthMetricsSynced = 0;
+    let staffSynced = 0;
+    let staffAttendanceSynced = 0;
     const results: DetailedSyncResultsDto = {};
 
     // Use a transaction for atomicity
@@ -119,6 +129,33 @@ export class SyncService {
         }
       }
 
+      // Sync staff (no FK to members/services)
+      if (payload.staff && payload.staff.length > 0) {
+        const staffResult = await this.syncStaff(payload.staff, queryRunner);
+        staffSynced = staffResult.synced;
+        if (staffResult.results) {
+          results.staff = staffResult.results;
+        }
+        if (staffResult.errors.length > 0) {
+          errors.push(...staffResult.errors);
+        }
+      }
+
+      // Sync staff attendance (after staff)
+      if (payload.staffAttendance && payload.staffAttendance.length > 0) {
+        const staffAttendanceResult = await this.syncStaffAttendance(
+          payload.staffAttendance,
+          queryRunner,
+        );
+        staffAttendanceSynced = staffAttendanceResult.synced;
+        if (staffAttendanceResult.results) {
+          results.staffAttendance = staffAttendanceResult.results;
+        }
+        if (staffAttendanceResult.errors.length > 0) {
+          errors.push(...staffAttendanceResult.errors);
+        }
+      }
+
       // Only commit if no critical errors occurred
       const hasCriticalErrors = errors.some(e => 
         e.includes('FOREIGN KEY') || e.includes('missing') || e.includes('not found')
@@ -135,6 +172,8 @@ export class SyncService {
           transactionsSynced: 0,
           servicesSynced: 0,
           healthMetricsSynced: 0,
+          staffSynced: 0,
+          staffAttendanceSynced: 0,
           errors: errors.length > 0 ? errors : undefined,
           timestamp: new Date().toISOString(),
           results: undefined, // Clear results since nothing was committed
@@ -142,7 +181,7 @@ export class SyncService {
       } else {
         await queryRunner.commitTransaction();
         this.logger.log(
-          `Sync completed: ${servicesSynced} services, ${membersSynced} members, ${attendanceSynced} attendance, ${transactionsSynced} transactions, ${healthMetricsSynced} health metrics`,
+          `Sync completed: ${servicesSynced} services, ${membersSynced} members, ${attendanceSynced} attendance, ${transactionsSynced} transactions, ${healthMetricsSynced} health metrics, ${staffSynced} staff, ${staffAttendanceSynced} staff attendance`,
         );
       }
 
@@ -153,6 +192,8 @@ export class SyncService {
         transactionsSynced,
         servicesSynced,
         healthMetricsSynced,
+        staffSynced,
+        staffAttendanceSynced,
         errors: errors.length > 0 ? errors : undefined,
         timestamp: new Date().toISOString(),
         results: Object.keys(results).length > 0 ? results : undefined,
@@ -170,6 +211,8 @@ export class SyncService {
         transactionsSynced,
         servicesSynced,
         healthMetricsSynced,
+        staffSynced,
+        staffAttendanceSynced,
         errors,
         timestamp: new Date().toISOString(),
         results: Object.keys(results).length > 0 ? results : undefined,
@@ -483,6 +526,118 @@ export class SyncService {
     }
   }
 
+  private async syncStaff(
+    staff: StaffSyncDto[],
+    queryRunner: any,
+  ): Promise<{ synced: number; results?: SyncResultDto; errors: string[] }> {
+    if (staff.length === 0) return { synced: 0, errors: [] };
+
+    const successful: number[] = [];
+    const failed: number[] = [];
+    const errors: string[] = [];
+
+    const values = staff.map(dto => ({
+      localId: dto.id,
+      fullName: dto.fullName,
+      phoneNumber: dto.phoneNumber ?? null,
+      role: dto.role ?? null,
+      lastSyncedAt: new Date(),
+    }));
+
+    try {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(Staff)
+        .values(values)
+        .orUpdate(
+          ['fullName', 'phoneNumber', 'role', 'updatedAt', 'lastSyncedAt'],
+          ['localId'],
+        )
+        .execute();
+
+      staff.forEach(s => successful.push(s.id));
+      return {
+        synced: staff.length,
+        results: { successful, failed },
+        errors,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to bulk sync staff: ${errorMessage}`);
+      staff.forEach(s => failed.push(s.id));
+      errors.push(`Failed to sync staff: ${errorMessage}`);
+      return { synced: 0, results: { successful, failed }, errors };
+    }
+  }
+
+  private async syncStaffAttendance(
+    staffAttendance: StaffAttendanceSyncDto[],
+    queryRunner: any,
+  ): Promise<{ synced: number; results?: SyncResultDto; errors: string[] }> {
+    if (staffAttendance.length === 0) return { synced: 0, errors: [] };
+
+    const successful: number[] = [];
+    const failed: number[] = [];
+    const errors: string[] = [];
+
+    const staffLocalIds = [...new Set(staffAttendance.map(a => a.staffId))];
+    const staffList = await queryRunner.manager.find(Staff, {
+      where: { localId: In(staffLocalIds) },
+    });
+    const staffMap = new Map(staffList.map(s => [s.localId, s.id]));
+
+    const valid: StaffAttendanceSyncDto[] = [];
+    for (const dto of staffAttendance) {
+      if (staffMap.has(dto.staffId)) {
+        valid.push(dto);
+      } else {
+        failed.push(dto.id);
+        errors.push(
+          `Staff attendance with localId ${dto.id} references missing staff with localId ${dto.staffId}`,
+        );
+      }
+    }
+
+    if (valid.length === 0) {
+      return { synced: 0, results: { successful, failed }, errors };
+    }
+
+    const values = valid.map(dto => ({
+      localId: dto.id,
+      staffLocalId: dto.staffId,
+      staffId: staffMap.get(dto.staffId)!,
+      scannedAt: new Date(dto.scannedAt),
+      lastSyncedAt: new Date(),
+    }));
+
+    try {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(StaffAttendance)
+        .values(values)
+        .orUpdate(
+          ['staffLocalId', 'staffId', 'scannedAt', 'updatedAt', 'lastSyncedAt'],
+          ['localId'],
+        )
+        .execute();
+
+      valid.forEach(a => successful.push(a.id));
+      return {
+        synced: valid.length,
+        results: { successful, failed },
+        errors,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to bulk sync staff attendance: ${errorMessage}`);
+      valid.forEach(a => failed.push(a.id));
+      errors.push(`Failed to sync staff attendance: ${errorMessage}`);
+      return { synced: 0, results: { successful, failed }, errors };
+    }
+  }
+
   private async syncTransactions(
     transactions: TransactionSyncDto[],
     queryRunner: any,
@@ -788,12 +943,14 @@ export class SyncService {
       };
 
       // Get the most recent lastSyncedAt from all entities
-      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax] = await Promise.allSettled([
+      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax, staffMax, staffAttendanceMax] = await Promise.allSettled([
         getMaxLastSynced(this.serviceRepository, 'service'),
         getMaxLastSynced(this.memberRepository, 'member'),
         getMaxLastSynced(this.attendanceRepository, 'attendance'),
         getMaxLastSynced(this.transactionRepository, 'transaction'),
         getMaxLastSynced(this.healthMetricRepository, 'healthMetric'),
+        getMaxLastSynced(this.staffRepository, 'staff'),
+        getMaxLastSynced(this.staffAttendanceRepository, 'staffAttendance'),
       ]);
 
       const dates: Date[] = [];
@@ -812,6 +969,12 @@ export class SyncService {
       }
       if (healthMetricMax.status === 'fulfilled' && healthMetricMax.value?.max) {
         dates.push(new Date(healthMetricMax.value.max));
+      }
+      if (staffMax.status === 'fulfilled' && staffMax.value?.max) {
+        dates.push(new Date(staffMax.value.max));
+      }
+      if (staffAttendanceMax.status === 'fulfilled' && staffAttendanceMax.value?.max) {
+        dates.push(new Date(staffAttendanceMax.value.max));
       }
 
       if (dates.length === 0) {

@@ -13,6 +13,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { SmsModule } from './sms/sms.module';
 import { HealthMetricsModule } from './health-metrics/health-metrics.module';
 import { PotentialCustomersModule } from './potential-customers/potential-customers.module';
+import { StaffModule } from './staff/staff.module';
 import { getDatabaseConfig } from './config/database.config';
 
 @Module({
@@ -36,6 +37,7 @@ import { getDatabaseConfig } from './config/database.config';
     SmsModule,
     HealthMetricsModule,
     PotentialCustomersModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [AppService],
