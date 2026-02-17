@@ -34,6 +34,13 @@ export class MembersService {
       emergencyContact: undefined, // Not in database
       notes: undefined, // Not in database
       membershipTier: member.membershipTier || undefined,
+      goals: member.goals || undefined,
+      bloodType: member.bloodType || undefined,
+      age: member.age || undefined,
+      height: member.height || undefined,
+      telegramUsername: member.telegramUsername || undefined,
+      remark: member.remark || undefined,
+      objective: member.objective || undefined,
       createdAt: member.createdAt.toISOString(),
       updatedAt: member.updatedAt.toISOString(),
     };

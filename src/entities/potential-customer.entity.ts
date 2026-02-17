@@ -54,6 +54,21 @@ export class PotentialCustomer {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'int', nullable: true })
+  age: number | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  height: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  telegramUsername: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  remark: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  objective: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

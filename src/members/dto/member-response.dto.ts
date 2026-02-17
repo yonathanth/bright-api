@@ -112,6 +112,27 @@ export class MemberWebDto {
   @ApiPropertyOptional({ example: 'gold', description: 'Membership tier' })
   membershipTier?: string;
 
+  @ApiPropertyOptional({ example: 'Lose weight, build muscle' })
+  goals?: string | null;
+
+  @ApiPropertyOptional({ example: 'A+' })
+  bloodType?: string | null;
+
+  @ApiPropertyOptional({ example: 25 })
+  age?: number | null;
+
+  @ApiPropertyOptional({ example: '175 cm' })
+  height?: string | null;
+
+  @ApiPropertyOptional({ example: '@username' })
+  telegramUsername?: string | null;
+
+  @ApiPropertyOptional({ example: 'Additional remarks' })
+  remark?: string | null;
+
+  @ApiPropertyOptional({ example: 'Weight Loss' })
+  objective?: string | null;
+
   @ApiProperty({ example: '2026-01-12T00:00:00.000Z' })
   createdAt: string;
 

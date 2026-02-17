@@ -95,6 +95,27 @@ export class Member {
   @Index('idx_member_membership_tier')
   membershipTier: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  goals: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  bloodType: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  age: number | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  height: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  telegramUsername: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  remark: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  objective: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

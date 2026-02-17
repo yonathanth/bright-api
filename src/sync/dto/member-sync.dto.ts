@@ -99,6 +99,34 @@ export class MemberSyncDto {
   @IsOptional()
   @IsString()
   membershipTier?: string | null;
+
+  @IsOptional()
+  @IsString()
+  goals?: string | null;
+
+  @IsOptional()
+  @IsString()
+  bloodType?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  age?: number | null;
+
+  @IsOptional()
+  @IsString()
+  height?: string | null;
+
+  @IsOptional()
+  @IsString()
+  telegramUsername?: string | null;
+
+  @IsOptional()
+  @IsString()
+  remark?: string | null;
+
+  @IsOptional()
+  @IsString()
+  objective?: string | null;
 }
 
 

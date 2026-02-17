@@ -21,6 +21,11 @@ export class PotentialCustomersService {
       email: createDto.email || null,
       serviceId: createDto.serviceId || null,
       notes: createDto.notes || null,
+      age: createDto.age ?? null,
+      height: createDto.height || null,
+      telegramUsername: createDto.telegramUsername || null,
+      remark: createDto.remark || null,
+      objective: createDto.objective || null,
       status: 'pending',
     });
 
@@ -98,6 +103,11 @@ export class PotentialCustomersService {
       convertedToMemberId: potentialCustomer.convertedToMemberId,
       serviceId: potentialCustomer.serviceId,
       notes: potentialCustomer.notes,
+      age: potentialCustomer.age,
+      height: potentialCustomer.height,
+      telegramUsername: potentialCustomer.telegramUsername,
+      remark: potentialCustomer.remark,
+      objective: potentialCustomer.objective,
       createdAt: potentialCustomer.createdAt,
       updatedAt: potentialCustomer.updatedAt,
     };

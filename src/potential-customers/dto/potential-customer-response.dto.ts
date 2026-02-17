@@ -9,6 +9,11 @@ export class PotentialCustomerResponseDto {
   convertedToMemberId: number | null;
   serviceId: number | null;
   notes: string | null;
+  age: number | null;
+  height: string | null;
+  telegramUsername: string | null;
+  remark: string | null;
+  objective: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
