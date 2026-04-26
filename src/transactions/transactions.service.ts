@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Transaction } from '../entities/transaction.entity';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { TransactionStatsDto, TransactionWebDto } from './dto/transaction-response.dto';
@@ -81,7 +81,10 @@ export class TransactionsService {
       type,
       category: transaction.service?.category || 'Uncategorized',
       description: transaction.description || undefined,
-      paymentMethod: transaction.paymentMethodId ? undefined : undefined, // TODO: Map paymentMethodId to name if payment methods table exists
+      paymentMethod:
+        transaction.paymentMethodId !== null && transaction.paymentMethodId !== undefined
+          ? `Method #${transaction.paymentMethodId}`
+          : undefined,
       transactionDate: transaction.transactionDate.toISOString(),
       member: transaction.member ? {
         id: transaction.member.id,
@@ -103,11 +106,42 @@ export class TransactionsService {
     return this.findAll({ ...query, memberId });
   }
 
+  private applyStatsFilters(
+    queryBuilder: SelectQueryBuilder<Transaction>,
+    query?: Pick<TransactionQueryDto, 'transactionType' | 'startDate' | 'endDate'>,
+  ): SelectQueryBuilder<Transaction> {
+    if (!query) return queryBuilder;
+
+    if (query.transactionType) {
+      queryBuilder.andWhere('transaction.transactionType = :transactionType', {
+        transactionType: query.transactionType,
+      });
+    }
+
+    if (query.startDate) {
+      queryBuilder.andWhere('transaction.transactionDate >= :startDate', {
+        startDate: new Date(query.startDate),
+      });
+    }
+
+    if (query.endDate) {
+      const endDateTime = new Date(query.endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('transaction.transactionDate <= :endDate', {
+        endDate: endDateTime,
+      });
+    }
+
+    return queryBuilder;
+  }
+
   /**
    * All date boundaries use UTC for consistent behaviour regardless of server timezone.
    * Inflows = income (paid) + positive_return; Outflows = expense + negative_return.
    */
-  async getStats(): Promise<TransactionStatsDto> {
+  async getStats(
+    query?: Pick<TransactionQueryDto, 'transactionType' | 'startDate' | 'endDate'>,
+  ): Promise<TransactionStatsDto> {
     const now = new Date();
     const y = now.getUTCFullYear();
     const m = now.getUTCMonth();
@@ -122,68 +156,83 @@ export class TransactionsService {
 
     const totalIncome = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(inflowsWhere)
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(inflowsWhere),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
     const totalOutflows = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(outflowsWhere)
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(outflowsWhere),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
 
     const thisMonthIncome = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(inflowsWhere)
-          .andWhere('transaction.transactionDate >= :startOfMonth', { startOfMonth })
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(inflowsWhere)
+            .andWhere('transaction.transactionDate >= :startOfMonth', { startOfMonth }),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
     const thisMonthOutflows = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(outflowsWhere)
-          .andWhere('transaction.transactionDate >= :startOfMonth', { startOfMonth })
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(outflowsWhere)
+            .andWhere('transaction.transactionDate >= :startOfMonth', { startOfMonth }),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
 
     const lastMonthIncome = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(inflowsWhere)
-          .andWhere('transaction.transactionDate >= :startOfLastMonth', { startOfLastMonth })
-          .andWhere('transaction.transactionDate < :startOfMonth', { startOfMonth })
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(inflowsWhere)
+            .andWhere('transaction.transactionDate >= :startOfLastMonth', { startOfLastMonth })
+            .andWhere('transaction.transactionDate < :startOfMonth', { startOfMonth }),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
     const lastMonthOutflows = parseFloat(
       (
-        await this.transactionRepository
-          .createQueryBuilder('transaction')
-          .select('SUM(transaction.amount)', 'total')
-          .where(outflowsWhere)
-          .andWhere('transaction.transactionDate >= :startOfLastMonth', { startOfLastMonth })
-          .andWhere('transaction.transactionDate < :startOfMonth', { startOfMonth })
-          .getRawOne()
+        await this.applyStatsFilters(
+          this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where(outflowsWhere)
+            .andWhere('transaction.transactionDate >= :startOfLastMonth', { startOfLastMonth })
+            .andWhere('transaction.transactionDate < :startOfMonth', { startOfMonth }),
+          query,
+        ).getRawOne()
       )?.total || '0',
     );
 
-    const totalCount = await this.transactionRepository.count();
+    const totalCount = await this.applyStatsFilters(
+      this.transactionRepository.createQueryBuilder('transaction'),
+      query,
+    ).getCount();
 
     const last7Days: { date: string; income: number; outflows: number }[] = [];
     for (let i = 0; i < 7; i++) {
@@ -191,24 +240,28 @@ export class TransactionsService {
       const dayEnd = new Date(Date.UTC(y, m, d - i + 1));
       const dayIncome = parseFloat(
         (
-          await this.transactionRepository
-            .createQueryBuilder('transaction')
-            .select('SUM(transaction.amount)', 'total')
-            .where(inflowsWhere)
-            .andWhere('transaction.transactionDate >= :dayStart', { dayStart })
-            .andWhere('transaction.transactionDate < :dayEnd', { dayEnd })
-            .getRawOne()
+          await this.applyStatsFilters(
+            this.transactionRepository
+              .createQueryBuilder('transaction')
+              .select('SUM(transaction.amount)', 'total')
+              .where(inflowsWhere)
+              .andWhere('transaction.transactionDate >= :dayStart', { dayStart })
+              .andWhere('transaction.transactionDate < :dayEnd', { dayEnd }),
+            query,
+          ).getRawOne()
         )?.total || '0',
       );
       const dayOutflows = parseFloat(
         (
-          await this.transactionRepository
-            .createQueryBuilder('transaction')
-            .select('SUM(transaction.amount)', 'total')
-            .where(outflowsWhere)
-            .andWhere('transaction.transactionDate >= :dayStart', { dayStart })
-            .andWhere('transaction.transactionDate < :dayEnd', { dayEnd })
-            .getRawOne()
+          await this.applyStatsFilters(
+            this.transactionRepository
+              .createQueryBuilder('transaction')
+              .select('SUM(transaction.amount)', 'total')
+              .where(outflowsWhere)
+              .andWhere('transaction.transactionDate >= :dayStart', { dayStart })
+              .andWhere('transaction.transactionDate < :dayEnd', { dayEnd }),
+            query,
+          ).getRawOne()
         )?.total || '0',
       );
       last7Days.push({

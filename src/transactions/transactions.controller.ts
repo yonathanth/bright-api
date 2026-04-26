@@ -54,8 +54,8 @@ export class TransactionsController {
     description: 'Transaction statistics',
     type: TransactionStatsDto,
   })
-  async getStats(): Promise<TransactionStatsDto> {
-    return this.transactionsService.getStats();
+  async getStats(@Query() query: TransactionQueryDto): Promise<TransactionStatsDto> {
+    return this.transactionsService.getStats(query);
   }
 
   @Get('member/:memberId')
