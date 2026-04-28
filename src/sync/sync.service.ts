@@ -7,6 +7,7 @@ import { Service } from '../entities/service.entity';
 import { Member } from '../entities/member.entity';
 import { Attendance } from '../entities/attendance.entity';
 import { Transaction } from '../entities/transaction.entity';
+import { PaymentMethod } from '../entities/payment-method.entity';
 import { HealthMetric } from '../entities/health-metric.entity';
 import { Staff } from '../entities/staff.entity';
 import { StaffAttendance } from '../entities/staff-attendance.entity';
@@ -17,6 +18,7 @@ import { TransactionSyncDto } from './dto/transaction-sync.dto';
 import { HealthMetricSyncDto } from './dto/health-metric-sync.dto';
 import { StaffSyncDto } from './dto/staff-sync.dto';
 import { StaffAttendanceSyncDto } from './dto/staff-attendance-sync.dto';
+import { PaymentMethodSyncDto } from './dto/payment-method-sync.dto';
 
 @Injectable()
 export class SyncService {
@@ -31,6 +33,8 @@ export class SyncService {
     private attendanceRepository: Repository<Attendance>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+    @InjectRepository(PaymentMethod)
+    private paymentMethodRepository: Repository<PaymentMethod>,
     @InjectRepository(HealthMetric)
     private healthMetricRepository: Repository<HealthMetric>,
     @InjectRepository(Staff)
@@ -45,6 +49,7 @@ export class SyncService {
     let membersSynced = 0;
     let attendanceSynced = 0;
     let transactionsSynced = 0;
+    let paymentMethodsSynced = 0;
     let servicesSynced = 0;
     let healthMetricsSynced = 0;
     let staffSynced = 0;
@@ -114,6 +119,21 @@ export class SyncService {
         }
       }
 
+      // Sync payment methods (desktop lookup table used by transaction.paymentMethodId)
+      if (payload.paymentMethods && payload.paymentMethods.length > 0) {
+        const paymentMethodResult = await this.syncPaymentMethods(
+          payload.paymentMethods,
+          queryRunner,
+        );
+        paymentMethodsSynced = paymentMethodResult.synced;
+        if (paymentMethodResult.results) {
+          results.paymentMethods = paymentMethodResult.results;
+        }
+        if (paymentMethodResult.errors.length > 0) {
+          errors.push(...paymentMethodResult.errors);
+        }
+      }
+
       // Sync health metrics (after members, as they reference members)
       if (payload.healthMetrics && payload.healthMetrics.length > 0) {
         const healthMetricResult = await this.syncHealthMetrics(
@@ -170,6 +190,7 @@ export class SyncService {
           membersSynced: 0,
           attendanceSynced: 0,
           transactionsSynced: 0,
+          paymentMethodsSynced: 0,
           servicesSynced: 0,
           healthMetricsSynced: 0,
           staffSynced: 0,
@@ -190,6 +211,7 @@ export class SyncService {
         membersSynced,
         attendanceSynced,
         transactionsSynced,
+        paymentMethodsSynced,
         servicesSynced,
         healthMetricsSynced,
         staffSynced,
@@ -209,6 +231,7 @@ export class SyncService {
         membersSynced,
         attendanceSynced,
         transactionsSynced,
+        paymentMethodsSynced,
         servicesSynced,
         healthMetricsSynced,
         staffSynced,
@@ -936,6 +959,51 @@ export class SyncService {
     }
   }
 
+  private async syncPaymentMethods(
+    paymentMethods: PaymentMethodSyncDto[],
+    queryRunner: any,
+  ): Promise<{ synced: number; results?: SyncResultDto; errors: string[] }> {
+    if (paymentMethods.length === 0) return { synced: 0, errors: [] };
+
+    const successful: number[] = [];
+    const failed: number[] = [];
+    const errors: string[] = [];
+
+    const values = paymentMethods.map((pm) => ({
+      localId: pm.id,
+      name: pm.name,
+      description: pm.description ?? null,
+      isActive: pm.isActive,
+      lastSyncedAt: new Date(),
+    }));
+
+    try {
+      await queryRunner.manager
+        .createQueryBuilder()
+        .insert()
+        .into(PaymentMethod)
+        .values(values)
+        .orUpdate(
+          ['name', 'description', 'isActive', 'updatedAt', 'lastSyncedAt'],
+          ['localId'],
+        )
+        .execute();
+
+      paymentMethods.forEach((pm) => successful.push(pm.id));
+      return {
+        synced: paymentMethods.length,
+        results: { successful, failed },
+        errors,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to bulk sync payment methods: ${errorMessage}`);
+      paymentMethods.forEach((pm) => failed.push(pm.id));
+      errors.push(`Failed to sync payment methods: ${errorMessage}`);
+      return { synced: 0, results: { successful, failed }, errors };
+    }
+  }
+
   async getLastSyncTime(): Promise<{ lastSyncAt: string | null }> {
     try {
       // Helper function to safely get max lastSyncedAt
@@ -957,11 +1025,12 @@ export class SyncService {
       };
 
       // Get the most recent lastSyncedAt from all entities
-      const [serviceMax, memberMax, attendanceMax, transactionMax, healthMetricMax, staffMax, staffAttendanceMax] = await Promise.allSettled([
+      const [serviceMax, memberMax, attendanceMax, transactionMax, paymentMethodMax, healthMetricMax, staffMax, staffAttendanceMax] = await Promise.allSettled([
         getMaxLastSynced(this.serviceRepository, 'service'),
         getMaxLastSynced(this.memberRepository, 'member'),
         getMaxLastSynced(this.attendanceRepository, 'attendance'),
         getMaxLastSynced(this.transactionRepository, 'transaction'),
+        getMaxLastSynced(this.paymentMethodRepository, 'paymentMethod'),
         getMaxLastSynced(this.healthMetricRepository, 'healthMetric'),
         getMaxLastSynced(this.staffRepository, 'staff'),
         getMaxLastSynced(this.staffAttendanceRepository, 'staffAttendance'),
@@ -980,6 +1049,9 @@ export class SyncService {
       }
       if (transactionMax.status === 'fulfilled' && transactionMax.value?.max) {
         dates.push(new Date(transactionMax.value.max));
+      }
+      if (paymentMethodMax.status === 'fulfilled' && paymentMethodMax.value?.max) {
+        dates.push(new Date(paymentMethodMax.value.max));
       }
       if (healthMetricMax.status === 'fulfilled' && healthMetricMax.value?.max) {
         dates.push(new Date(healthMetricMax.value.max));

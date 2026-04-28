@@ -13,6 +13,7 @@ import { TransactionSyncDto } from './transaction-sync.dto';
 import { HealthMetricSyncDto } from './health-metric-sync.dto';
 import { StaffSyncDto } from './staff-sync.dto';
 import { StaffAttendanceSyncDto } from './staff-attendance-sync.dto';
+import { PaymentMethodSyncDto } from './payment-method-sync.dto';
 
 export class SyncPayloadDto {
   @IsNotEmpty()
@@ -38,6 +39,12 @@ export class SyncPayloadDto {
   @ValidateNested({ each: true })
   @Type(() => TransactionSyncDto)
   transactions: TransactionSyncDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentMethodSyncDto)
+  paymentMethods?: PaymentMethodSyncDto[];
 
   @IsArray()
   @ValidateNested({ each: true })
