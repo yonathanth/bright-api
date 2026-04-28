@@ -79,6 +79,12 @@ export class TransactionWebDto {
   @ApiPropertyOptional({ example: 'Cash' })
   paymentMethod?: string;
 
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Payment method local id from desktop app',
+  })
+  paymentMethodId?: number | null;
+
   @ApiProperty({ example: '2026-01-17T10:04:51.660Z' })
   transactionDate: string;
 

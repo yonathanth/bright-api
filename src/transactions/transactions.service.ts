@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Transaction } from '../entities/transaction.entity';
+import { PaymentMethod } from '../entities/payment-method.entity';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { TransactionStatsDto, TransactionWebDto } from './dto/transaction-response.dto';
 import { PaginatedResponseDto, createPaginatedResponse } from '../common/dto/pagination.dto';
@@ -11,6 +12,8 @@ export class TransactionsService {
   constructor(
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+    @InjectRepository(PaymentMethod)
+    private paymentMethodRepository: Repository<PaymentMethod>,
   ) {}
 
   async findAll(query: TransactionQueryDto): Promise<PaginatedResponseDto<TransactionWebDto>> {
@@ -63,14 +66,37 @@ export class TransactionsService {
     queryBuilder.skip(skip).take(limit);
 
     const transactions = await queryBuilder.getMany();
+    const paymentMethodMap = await this.loadPaymentMethodMap(transactions);
 
     // Transform to web format
-    const transformedTransactions = transactions.map(t => this.transformToWebFormat(t));
+    const transformedTransactions = transactions.map(t => this.transformToWebFormat(t, paymentMethodMap));
 
     return createPaginatedResponse(transformedTransactions, total, page, limit);
   }
 
-  private transformToWebFormat(transaction: Transaction): TransactionWebDto {
+  private async loadPaymentMethodMap(
+    transactions: Transaction[],
+  ): Promise<Map<number, string>> {
+    const localIds = Array.from(
+      new Set(
+        transactions
+          .map((t) => t.paymentMethodId)
+          .filter((id): id is number => typeof id === 'number'),
+      ),
+    );
+    if (localIds.length === 0) return new Map();
+
+    const methods = await this.paymentMethodRepository.find({
+      where: { localId: In(localIds) },
+      select: ['localId', 'name'],
+    });
+    return new Map(methods.map((pm) => [pm.localId, pm.name]));
+  }
+
+  private transformToWebFormat(
+    transaction: Transaction,
+    paymentMethodMap?: Map<number, string>,
+  ): TransactionWebDto {
     const rawType = transaction.transactionType;
     const validTypes: TransactionWebDto['type'][] = ['income', 'expense', 'positive_return', 'negative_return'];
     const type = validTypes.includes(rawType as TransactionWebDto['type']) ? (rawType as TransactionWebDto['type']) : 'income';
@@ -82,9 +108,10 @@ export class TransactionsService {
       category: transaction.service?.category || 'Uncategorized',
       description: transaction.description || undefined,
       paymentMethod:
-        transaction.paymentMethodId !== null && transaction.paymentMethodId !== undefined
-          ? `Method #${transaction.paymentMethodId}`
+        transaction.paymentMethodId && paymentMethodMap
+          ? paymentMethodMap.get(transaction.paymentMethodId)
           : undefined,
+      paymentMethodId: transaction.paymentMethodId,
       transactionDate: transaction.transactionDate.toISOString(),
       member: transaction.member ? {
         id: transaction.member.id,
@@ -99,7 +126,9 @@ export class TransactionsService {
       where: { id },
       relations: ['member', 'service'],
     });
-    return transaction ? this.transformToWebFormat(transaction) : null;
+    if (!transaction) return null;
+    const paymentMethodMap = await this.loadPaymentMethodMap([transaction]);
+    return this.transformToWebFormat(transaction, paymentMethodMap);
   }
 
   async findByMember(memberId: number, query: TransactionQueryDto): Promise<PaginatedResponseDto<TransactionWebDto>> {
